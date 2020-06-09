@@ -5,18 +5,20 @@ using Oiler
 using JSON
 using CSV
 using DataFrames
+using ArchGDAL
+const AG = ArchGDAL
 
 using PyPlot
 
-#fault_file = "./chn_faults.geojson"
-pivot_file = "./pivots.geojson"
+fault_file = "../block_data/chn_faults.geojson"
+pivot_file = "../block_data/pivots.geojson"
 #gnss_vels_file = "./block_vels.csv"
 # load data
 
 # faults
-#fault_json = JSON.parsefile(fault_file);
+fault_json = JSON.parsefile(fault_file);
 
-data_gpkg = "./chn_faults_blocks.gpkg"
+data_gpkg = "../block_data/chn_faults_blocks.gpkg"
 
 fault_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="chn_faults")
 block_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="blocks")
@@ -43,28 +45,6 @@ function err_nothing_fix(err)
     end
 end
 
-function feat_to_Fault(feat)
-    trace = transpose(reduce(hcat, [convert(Array{Float64,1}, r) for r in 
-    feat["geometry"]["coordinates"]]))
-
-    trace = convert(Array{Float64,2}, trace)
-
-    pp = feat["properties"]
-
-    Oiler.Fault(trace = trace, 
-        dip_dir = pp["dip_dir"],
-        extension_rate = vel_nothing_fix(pp["v_ex"]),
-        extension_err = err_nothing_fix(pp["e_ex"]) * fault_weight,
-        dextral_rate =vel_nothing_fix(pp["v_rl"]),
-        dextral_err = err_nothing_fix(pp["e_rl"]) * fault_weight,
-        dip = pp["dip"],
-        name = "",#pp["name"],
-        hw = pp["hw"],
-        fw = pp["fw"],
-        usd=pp["usd"],
-        lsd=pp["lsd"],
-        )
-end
 
 function row_to_fault(row)
     trace = Oiler.IO.get_coords_from_geom(row[:geometry])
@@ -117,14 +97,6 @@ pivots = map(feat_to_pivot, pivot_json["features"]);
 
 
 # gnss
-function gnss_vel_from_row_old(row)
-    Oiler.VelocityVectorSphere(lon = row.lon, lat = row.lat, ve = row.e_vel,
-        vn = row.n_vel, ee = row.e_err, en = row.n_err, name = row.station,
-        fix = "1111", mov = string(row.block), vel_type="GNSS")
-end
-
-#gnss_vels_df = CSV.read(gnss_vels_file)
-#gnss_vels = [gnss_vel_from_row(gnss_vels_df[i,:]) for i in 1:size(gnss_vels_df, 1)];
 
 
 gnss_block_idx = Oiler.IO.get_block_idx_for_points(gnss_df_all, block_df)
@@ -158,29 +130,28 @@ vel_groups = Oiler.group_vels_by_fix_mov(vels);
 
 # solve
 poles = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults = faults,
-                                               weighted = true, 
-                                               regularize = false,
-                                               l2_lambda = 1e5)
+                                               weighted = true)
 
 # look at outputs
 
 rates  = Oiler.Utils.get_fault_slip_rates_from_poles(faults, poles)
 
-#new_fault_json = deepcopy(fault_json)
-#
-#for (i, rate) in enumerate(rates)
-#    new_fault_json["features"][i]["properties"]["v_rl"] = rate[1]
-#    new_fault_json["features"][i]["properties"]["e_rl"] = 0.
-#    new_fault_json["features"][i]["properties"]["v_ex"] = rate[2]
-#    new_fault_json["features"][i]["properties"]["e_ex"] = 0.
-#end
+new_fault_json = deepcopy(fault_json)
 
-#open("./chn_faults_out.geojson", "w") do ff
-#    JSON.print(ff, new_fault_json)
-#end
+for (i, rate) in enumerate(rates)
+    new_fault_json["features"][i]["properties"]["v_rl"] = rate[1]
+    new_fault_json["features"][i]["properties"]["e_rl"] = 0.
+    new_fault_json["features"][i]["properties"]["v_ex"] = rate[2]
+    new_fault_json["features"][i]["properties"]["e_ex"] = 0.
+end
+
+open("../block_data/chn_faults_out.geojson", "w") do ff
+    JSON.print(ff, new_fault_json)
+end
 
 
-block_centroids = CSV.read("./block_centroids.csv")
+#block_centroids = CSV.read("./block_centroids.csv")
+block_centroids = [AG.centroid(block_df[i, :geometry]) for i in 1:size(block_df, 1)]
 
 pole_arr = collect(values(poles))
 pole_arr = [pole for pole in pole_arr if typeof(pole) == Oiler.PoleCart]
@@ -190,28 +161,35 @@ centroids_lat = []
 centroids_ve = []
 centroids_vn = []
 eur_rel_poles = Array{Oiler.PoleCart}(undef, size(block_centroids,1))
-for i in 1:size(block_centroids, 1)
-    try
-        row = block_centroids[i,:]
-        push!(centroids_lon, row.X)
-        push!(centroids_lat, row.Y)
-        PvGb = Oiler.BlockRotations.build_PvGb_deg(row.X, row.Y)
+for (i, b_cent) in enumerate(block_centroids)
+    #try
+        #row = block_centroids[i,:]
+        bc_lon = AG.getx(b_cent, 0)
+        bc_lat =  AG.gety(b_cent, 0)
+        push!(centroids_lon, bc_lon)
+        push!(centroids_lat, bc_lat)
+        PvGb = Oiler.BlockRotations.build_PvGb_deg(bc_lon, bc_lat)
         
-        pole = Oiler.Utils.get_path_euler_pole(pole_arr, "1111", string(row.fid))
+        pole = Oiler.Utils.get_path_euler_pole(pole_arr, "1111", string(block_df[i, :fid]))
         
         ve, vn, vu = PvGb * [pole.x, pole.y, pole.z]
         push!(centroids_ve, ve)
         push!(centroids_vn, vn)
         eur_rel_poles[i] = pole
-    catch
-        row = block_centroids[i,:]
-        fid = row.fid
-        warn_msg = "no pole found for block $fid" 
-        @warn warn_msg
-    end
+    #catch
+    #    row = block_centroids[i,:]
+    #    fid = row.fid
+    #    warn_msg = "no pole found for block $fid" 
+    #    @warn warn_msg
+    #end
 end
 
-CSV.write("./block_poles_eur_rel.csv", 
+centroids = DataFrame()
+centroids.lon = centroids_lon
+centroids.lat = centroids_lat
+centroids.fid =
+
+CSV.write("../block_data/block_poles_eur_rel.csv", 
           Oiler.IO.poles_to_df(eur_rel_poles, convert_to_sphere=true))
 
 vlon = [v.lon for v in gnss_vels]
@@ -265,10 +243,10 @@ for fault in faults
     plot(fault.trace[:,1], fault.trace[:,2], "k-", lw=0.3)
 end
 quiver(centroids_lon, centroids_lat, centroids_ve, centroids_vn, scale=300)
-quiver(vlon, vlat, vve, vvn, color="b", scale=300)
+#quiver(vlon, vlat, vve, vvn, color="b", scale=300)
 #quiver(vlon, vlat, ple, pln, color="r", scale=300)
 quiver(vlon, vlat, pred_gnss_ve, pred_gnss_vn, color="r", scale=300)
-#quiver(vlon, vlat, vve-pred_gnss_ve, vvn-pred_gnss_vn, color="b", scale=300)
+quiver(vlon, vlat, vve-pred_gnss_ve, vvn-pred_gnss_vn, color="b", scale=300)
 axis("equal")
 
 figure()
