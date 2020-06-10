@@ -193,6 +193,7 @@ CSV.write("../block_data/block_poles_eur_rel.csv",
           Oiler.IO.poles_to_df(eur_rel_poles, convert_to_sphere=true))
 
 vlon = [v.lon for v in gnss_vels]
+        
 vlat = [v.lat for v in gnss_vels]
 vve = [v.ve for v in gnss_vels]
 vvn = [v.vn for v in gnss_vels]
