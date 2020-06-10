@@ -1,2 +1,3 @@
 *.gpkg-wal
 *.gpkg-shm
+.ipynb_checkpoints/
