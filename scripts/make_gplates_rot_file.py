@@ -28,7 +28,7 @@ gdf_11["time"] = 11.
 gdf_all = pd.concat((
     gdf_0, 
     gdf_10, 
-    gdf_11
+    #gdf_11
 ))
 
 
