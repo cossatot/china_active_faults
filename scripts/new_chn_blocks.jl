@@ -11,7 +11,6 @@ const AG = ArchGDAL
 using PyPlot
 
 fault_file = "../block_data/chn_faults.geojson"
-pivot_file = "../block_data/pivots.geojson"
 #gnss_vels_file = "./block_vels.csv"
 # load data
 
@@ -73,27 +72,6 @@ println("n faults: ", length(faults))
 
 #fault_vels = [f for f in fault_vels if (f.vn != 0.) & (f.ve != 0.)]
 println("n faults vels: ", length(fault_vels))
-
-
-# pivots
-function feat_to_pivot(feat)
-    
-    trace = transpose(reduce(hcat, [convert(Array{Float64,1}, r) for r in 
-    feat["geometry"]["coordinates"]]))
-
-    trace = convert(Array{Float64,2}, trace)
-    lon = (trace[1,1] + trace[2,1]) / 2.
-    lat = (trace[1,2] + trace[2,2]) / 2.
-    
-    pp = feat["properties"]
-
-    Oiler.VelocityVectorSphere(lon = lon, lat = lat, 
-                               ve=0., vn=0., ee=10., en=10.,
-                               fix=pp["fw"], mov=pp["hw"], vel_type="pivot")
-end
-
-pivot_json = JSON.parsefile(pivot_file);
-pivots = map(feat_to_pivot, pivot_json["features"]);
 
 
 # gnss
