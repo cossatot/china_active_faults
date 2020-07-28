@@ -214,7 +214,7 @@ pred_block_ve = [v[1] for v in gnss_pred_vels]
 pred_block_vn = [v[2] for v in gnss_pred_vels]
 
 pred_gnss_ve = ple + pred_block_ve
-pred_gnss_vn = ple + pred_block_vn
+pred_gnss_vn = pln + pred_block_vn
 
 
 figure()
