@@ -206,7 +206,7 @@ ple, pln = [v[1] for v in pred_lock_vels], [v[2] for v in pred_lock_vels]
 
 
 gnss_pred_vels = [
-    Oiler.Utils.get_vel_vec_at_pole(vel, poles[(vel.fix, vel.mov)])
+    Oiler.Utils.get_vel_vec_from_pole(vel, poles[(vel.fix, vel.mov)])
     for vel in gnss_vels
 ]
 
