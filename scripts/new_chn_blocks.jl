@@ -23,7 +23,6 @@ fault_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="chn_faults")
 block_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="blocks")
 gnss_df_all = Oiler.IO.gis_vec_file_to_df(data_gpkg;layername="gnss_vels")
 
-
 println("n blocks: ", size(block_df, 1))
 
 fault_weight = 1.
@@ -165,7 +164,7 @@ end
 centroids = DataFrame()
 centroids.lon = centroids_lon
 centroids.lat = centroids_lat
-centroids.fid =
+#centroids.fid =
 
 CSV.write("../block_data/block_poles_eur_rel.csv", 
           Oiler.IO.poles_to_df(eur_rel_poles, convert_to_sphere=true))
@@ -217,18 +216,18 @@ pred_gnss_ve = ple + pred_block_ve
 pred_gnss_vn = pln + pred_block_vn
 
 
-figure()
+figure(figsize=(14,10))
 for fault in faults
     plot(fault.trace[:,1], fault.trace[:,2], "k-", lw=0.3)
 end
-quiver(centroids_lon, centroids_lat, centroids_ve, centroids_vn, scale=300)
-#quiver(vlon, vlat, vve, vvn, color="b", scale=300)
+quiver(centroids_lon, centroids_lat, centroids_ve, centroids_vn, color="C1", scale=300)
+#quiver(vlon, vlat, vve, vvn, color="k", scale=300)
 #quiver(vlon, vlat, ple, pln, color="r", scale=300)
 quiver(vlon, vlat, pred_gnss_ve, pred_gnss_vn, color="r", scale=300)
 quiver(vlon, vlat, vve-pred_gnss_ve, vvn-pred_gnss_vn, color="b", scale=300)
 axis("equal")
 
-figure()
+figure(figsize=(10,8))
 subplot(1,2,1)
 errorbar([f.dextral_rate for f in faults], [r[1] for r in rates],
          xerr = [f.dextral_err for f in faults], fmt="o")
