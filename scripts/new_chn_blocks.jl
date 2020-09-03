@@ -4,7 +4,7 @@ using Oiler
 
 using JSON
 using CSV
-using DataFrames
+using DataFrames, DataFramesMeta
 using ArchGDAL
 const AG = ArchGDAL
 
@@ -18,28 +18,43 @@ fault_file = "../block_data/chn_faults.geojson"
 fault_json = JSON.parsefile(fault_file);
 
 data_gpkg = "../block_data/chn_faults_blocks.gpkg"
+geol_slip_rates_file = "../block_data/geol_slip_rate_pts.geojson"
 
 fault_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="chn_faults")
 block_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="blocks")
 gnss_df_all = Oiler.IO.gis_vec_file_to_df(data_gpkg;layername="gnss_vels")
+geol_slip_rate_df = Oiler.IO.gis_vec_file_to_df(geol_slip_rates_file)
 
 println("n blocks: ", size(block_df, 1))
 
 fault_weight = 1.
 
+
 function vel_nothing_fix(vel)
-    if isnothing(vel) | ismissing(vel)
+    if vel == ""
+        return 0.
+    elseif isnothing(vel) | ismissing(vel)
         return 0.
     else
-        return vel
+        if typeof(vel) == String
+            return parse(Float64, vel)
+        else
+            return vel
+        end
     end
 end
 
 function err_nothing_fix(err)
-    if isnothing(err) | ismissing(err)
-        return 1000.
+    if err == ""
+        return 20.
+    elseif isnothing(err) | ismissing(err)
+        return 20.
     else
-        return err
+        if typeof(err) == String
+            return parse(Float64, err)
+        else
+            return err
+        end
     end
 end
 
@@ -73,6 +88,48 @@ println("n faults: ", length(faults))
 println("n faults vels: ", length(fault_vels))
 
 
+# geol slip rates
+function make_vel_from_slip_rate(slip_rate_row, fault_df)
+    fault_idx = parse(Int, slip_rate_row[:fault_seg])
+    fault_row = @where(fault_df, findall(x->(x==fault_idx), fault_df.fid))[1,:]
+    fault = row_to_fault(fault_row)
+
+    extension_rate = vel_nothing_fix(slip_rate_row[:extension_rate])
+    extension_err = err_nothing_fix(slip_rate_row[:extension_err])
+    dextral_rate =vel_nothing_fix(slip_rate_row[:dextral_rate])
+    dextral_err = err_nothing_fix(slip_rate_row[:extension_err])
+
+    ve, vn = Oiler.Faults.fault_slip_rate_to_ve_vn(dextral_rate, 
+                                                   extension_rate,
+                                                   fault.strike)
+
+    ee, en = Oiler.Faults.fault_slip_rate_to_ve_vn(dextral_err, 
+                                                   extension_err,
+                                                   fault.strike)
+
+    pt = Oiler.IO.get_coords_from_geom(slip_rate_row[:geometry])
+    lon = pt[1]
+    lat = pt[2]
+    
+    VelocityVectorSphere(lon=lon, lat=lat, ve=ve, vn=vn, fix=fault.hw,
+                         mov=fault.fw, vel_type="fault")
+
+end
+
+
+geol_slip_rate_vels = []
+for i in 1:size(geol_slip_rate_df, 1)
+    slip_rate_row = geol_slip_rate_df[i,:]
+    if slip_rate_row[:include] == true
+        push!(geol_slip_rate_vels, make_vel_from_slip_rate(slip_rate_row, 
+                                                           fault_df))
+    end
+end
+
+geol_slip_rate_vels = convert(Array{VelocityVectorSphere}, geol_slip_rate_vels)
+
+println("n fault slip rate vels: ", length(geol_slip_rate_vels))
+
 # gnss
 
 
@@ -98,8 +155,8 @@ end
 
 gnss_vels = convert(Array{VelocityVectorSphere}, gnss_vels)
 
-vels = vcat(fault_vels, gnss_vels);
-#vels = vcat(fault_vels, pivots, gnss_vels);
+vels = vcat(fault_vels, gnss_vels, geol_slip_rate_vels);
+# vels = vcat(fault_vels, gnss_vels);
 
 println("n gnss vels: ", length(gnss_vels))
 
@@ -107,6 +164,7 @@ vel_groups = Oiler.group_vels_by_fix_mov(vels);
 
 # solve
 poles = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults = faults,
+                                               sparse_lhs=true,
                                                weighted = true)
 
 # look at outputs
@@ -227,7 +285,7 @@ quiver(vlon, vlat, pred_gnss_ve, pred_gnss_vn, color="r", scale=300)
 quiver(vlon, vlat, vve-pred_gnss_ve, vvn-pred_gnss_vn, color="b", scale=300)
 axis("equal")
 
-figure(figsize=(10,8))
+figure(figsize=(10,4))
 subplot(1,2,1)
 errorbar([f.dextral_rate for f in faults], [r[1] for r in rates],
          xerr = [f.dextral_err for f in faults], fmt="o")
