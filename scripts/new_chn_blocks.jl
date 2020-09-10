@@ -81,6 +81,7 @@ faults = [row_to_fault(fault_df[i,:]) for i in 1:size(fault_df, 1)]
 
 #faults = map(feat_to_Fault, fault_json["features"]);
 fault_vels_ = map(Oiler.fault_to_vels, faults);
+#fault_vels_ = map(Oiler.fault_to_vel, faults);
 fault_vels = reduce(vcat, fault_vels_)
 println("n faults: ", length(faults))
 
