@@ -19,9 +19,13 @@ fault_json = JSON.parsefile(fault_file);
 
 data_gpkg = "../block_data/chn_faults_blocks.gpkg"
 geol_slip_rates_file = "../block_data/geol_slip_rate_pts.geojson"
+block_file = "../block_data/chn_blocks.geojson"
 
-fault_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="chn_faults")
-block_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="blocks")
+#fault_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="chn_faults")
+fault_df = Oiler.IO.gis_vec_file_to_df(fault_file)
+#block_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="blocks")
+block_df = Oiler.IO.gis_vec_file_to_df(block_file)
+
 gnss_df_all = Oiler.IO.gis_vec_file_to_df(data_gpkg;layername="gnss_vels")
 geol_slip_rate_df = Oiler.IO.gis_vec_file_to_df(geol_slip_rates_file)
 
