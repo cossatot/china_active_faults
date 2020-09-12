@@ -111,7 +111,7 @@ def rotate_block(block, time=1):
 
 
 
-with open('../block_data/chn_single_blocks.geojson') as f:
+with open('../block_data/chn_blocks.geojson') as f:
     gj = json.load(f)
 
 
