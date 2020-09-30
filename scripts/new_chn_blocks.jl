@@ -376,12 +376,26 @@ axis("equal")
 figure(figsize=(10,4))
 
 subplot(1,2,1)
+data_max = maximum([maximum(dex_geol_obs), maximum(dex_geol_pred)])
+data_min = minimum([minimum(dex_geol_obs), minimum(dex_geol_pred)])
+plot([data_min, data_max], [data_min, data_max], "C1--")
+
 errorbar(dex_geol_obs, dex_geol_pred, xerr = dex_geol_err, fmt="o")
-xlabel(
+
+xlabel("observed")
+ylabel("modeled")
 title("dextral")
 
 subplot(1,2,2)
+
+data_max = maximum([maximum(ext_geol_obs), maximum(ext_geol_pred)])
+data_min = minimum([minimum(ext_geol_obs), minimum(ext_geol_pred)])
+plot([data_min, data_max], [data_min, data_max], "C1--")
+
 errorbar(ext_geol_obs, ext_geol_pred, xerr=ext_geol_err, fmt="o")
+
+xlabel("observed")
+ylabel("modeled")
 title("extension")
 
 show()
