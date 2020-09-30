@@ -55,7 +55,12 @@ function err_nothing_fix(err)
         return 20.
     else
         if typeof(err) == String
-            return parse(Float64, err)
+            err = parse(Float64, err)
+            if iszero(err)
+                return 20.
+            else
+                return err
+            end
         else
             return err
         end
@@ -95,7 +100,8 @@ println("n faults vels: ", length(fault_vels))
 
 # geol slip rates
 function make_vel_from_slip_rate(slip_rate_row, fault_df)
-    fault_idx = parse(Int, slip_rate_row[:fault_seg])
+    fault_seg = slip_rate_row[:fault_seg]
+    fault_idx = parse(Int, fault_seg)
     fault_row = @where(fault_df, findall(x->(x==fault_idx), fault_df.fid))[1,:]
     fault = row_to_fault(fault_row)
 
@@ -117,7 +123,7 @@ function make_vel_from_slip_rate(slip_rate_row, fault_df)
     lat = pt[2]
     
     VelocityVectorSphere(lon=lon, lat=lat, ve=ve, vn=vn, fix=fault.hw,
-                         mov=fault.fw, vel_type="fault")
+                         mov=fault.fw, vel_type="fault", name=fault_seg)
 
 end
 
@@ -191,7 +197,8 @@ end
 
 
 #block_centroids = CSV.read("./block_centroids.csv")
-block_centroids = [AG.centroid(block_df[i, :geometry]) for i in 1:size(block_df, 1)]
+block_centroids = [AG.centroid(block_df[i, :geometry]) 
+                   for i in 1:size(block_df, 1)]
 
 pole_arr = collect(values(poles))
 pole_arr = [pole for pole in pole_arr if typeof(pole) == Oiler.PoleCart]
@@ -210,7 +217,8 @@ for (i, b_cent) in enumerate(block_centroids)
         push!(centroids_lat, bc_lat)
         PvGb = Oiler.BlockRotations.build_PvGb_deg(bc_lon, bc_lat)
         
-        pole = Oiler.Utils.get_path_euler_pole(pole_arr, "1111", string(block_df[i, :fid]))
+        pole = Oiler.Utils.get_path_euler_pole(pole_arr, "1111", 
+                                               string(block_df[i, :fid]))
         
         ve, vn, vu = PvGb * [pole.x, pole.y, pole.z]
         push!(centroids_ve, ve)
@@ -253,6 +261,28 @@ for vg in vg_keys
     end
 end
 
+
+pred_slip_rate_vels = []
+for vel in geol_slip_rate_vels
+    if haskey(poles, (vel.fix, vel.mov))
+        pv = Oiler.Utils.get_vel_vec_from_pole(vel, poles[(vel.fix, vel.mov)])
+    else
+        pv = Oiler.Utils.get_vel_vec_from_pole(vel, -poles[(vel.mov, vel.fix)])
+    end
+    push!(pred_slip_rate_vels, pv)
+end
+
+pred_geol_slip_rates = []
+for (i, rate) in enumerate(geol_slip_rate_vels)
+    fault_idx = parse(Int, rate.name)
+    fault_row = @where(fault_df, findall(x->(x==fault_idx), fault_df.fid))[1,:]
+    fault = row_to_fault(fault_row)
+    pred_rate = pred_slip_rate_vels[i]
+    d_r, e_r = Oiler.Faults.ve_vn_to_fault_slip_rate(pred_rate[1], pred_rate[2],
+                                                     fault.strike)
+    push!(pred_geol_slip_rates, (d_r, e_r))
+end
+
 pred_lock_vels_dict = Dict()
 
 for vg in keys(locking_partial_groups)
@@ -278,6 +308,57 @@ pred_block_vn = [v[2] for v in gnss_pred_vels]
 pred_gnss_ve = ple + pred_block_ve
 pred_gnss_vn = pln + pred_block_vn
 
+resid_ve = vve - pred_gnss_ve
+resid_vn = vvn - pred_gnss_vn
+
+pred_gnss_df = DataFrame()
+pred_gnss_df.lon = vlon
+pred_gnss_df.lat = vlat
+pred_gnss_df.ve = pred_gnss_ve
+pred_gnss_df.vn = pred_gnss_vn
+pred_gnss_df.re = resid_ve
+pred_gnss_df.rn = resid_vn
+CSV.write("../block_data/pred_gnss.csv", pred_gnss_df)
+
+
+inc = map(!, iszero.(geol_slip_rate_df[!,:include]))
+
+function check_missing(val)
+    if val == ""
+        return false
+    elseif val == 0.
+        return false
+    elseif ismissing(val) | isnothing(val)
+        return false
+    else
+        return true
+    end
+end
+
+dex_inc = [check_missing(d) for d in geol_slip_rate_df[!,:dextral_rate]]
+ext_inc = [check_missing(d) for d in geol_slip_rate_df[!,:extension_rate]]
+
+dex_geol_obs = geol_slip_rate_df[!,:dextral_rate][dex_inc .* inc]
+dex_geol_err = parse.(Float64, geol_slip_rate_df[!,:dextral_err][dex_inc .* inc])
+dex_geol_pred = [p[1] for p in pred_geol_slip_rates[dex_inc[inc]]]
+
+ext_geol_obs = parse.(Float64, geol_slip_rate_df[!,:extension_rate][ext_inc .* inc])
+ext_geol_err = parse.(Float64, geol_slip_rate_df[!,:extension_err][ext_inc .* inc])
+ext_geol_pred =  [p[2] for p in pred_geol_slip_rates[ext_inc[inc]]]
+
+
+all_obs = vcat(vve, vvn, dex_geol_obs, ext_geol_obs)
+all_errs = vcat([v.ee for v in gnss_vels], [v.en for v in gnss_vels], 
+                dex_geol_err, ext_geol_err)
+
+all_pred = vcat(pred_gnss_ve, pred_gnss_vn, dex_geol_pred, ext_geol_pred)
+
+chi_sq = sum(((all_obs .- all_pred).^2 ) ./ all_errs.^2 )
+
+n_param = length(keys(vel_groups)) / 3.
+
+red_chi_sq = chi_sq / (length(all_obs) - n_param)
+
 
 figure(figsize=(14,10))
 for fault in faults
@@ -290,14 +371,17 @@ quiver(vlon, vlat, pred_gnss_ve, pred_gnss_vn, color="r", scale=300)
 quiver(vlon, vlat, vve-pred_gnss_ve, vvn-pred_gnss_vn, color="b", scale=300)
 axis("equal")
 
+
+
 figure(figsize=(10,4))
+
 subplot(1,2,1)
-errorbar([f.dextral_rate for f in faults], [r[1] for r in rates],
-         xerr = [f.dextral_err for f in faults], fmt="o")
+errorbar(dex_geol_obs, dex_geol_pred, xerr = dex_geol_err, fmt="o")
+xlabel(
 title("dextral")
+
 subplot(1,2,2)
-errorbar([f.extension_rate for f in faults], [r[2] for r in rates],
-         xerr = [f.extension_err for f in faults], fmt="o")
+errorbar(ext_geol_obs, ext_geol_pred, xerr=ext_geol_err, fmt="o")
 title("extension")
 
 show()
