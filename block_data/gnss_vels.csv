@@ -1,4 +1,4 @@
-longitude,latitide,fid,e_vel,n_vel,e_err,n_err,station,ref
+longitude,latitude,fid,e_vel,n_vel,e_err,n_err,station,ref
 105.815,33.34,"3954",7.3,-1.8,0.8,0.7,1375_GPS,wang_shen_2020
 112.614,41.271,"3955",3,-0.9,0.3,0.3,A001_GPS,wang_shen_2020
 112.564,40.892,"3956",3.2,-1.3,0.2,0.2,A002_GPS,wang_shen_2020
