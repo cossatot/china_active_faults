@@ -11,7 +11,8 @@ const AG = ArchGDAL
 using PyPlot
 
 fault_file = "../block_data/chn_faults.geojson"
-#gnss_vels_file = "./block_vels.csv"
+#gnss_vels_file = "../block_data/gnss_vels.csv"
+gnss_vels_file = "../block_data/gnss_vels.geojson"
 # load data
 
 # faults
@@ -26,7 +27,8 @@ fault_df = Oiler.IO.gis_vec_file_to_df(fault_file)
 #block_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="blocks")
 block_df = Oiler.IO.gis_vec_file_to_df(block_file)
 
-gnss_df_all = Oiler.IO.gis_vec_file_to_df(data_gpkg;layername="gnss_vels")
+gnss_df_all = Oiler.IO.gis_vec_file_to_df(gnss_vels_file)
+#gnss_df_all = DataFrame(CSV.File(gnss_vels_file))
 geol_slip_rate_df = Oiler.IO.gis_vec_file_to_df(geol_slip_rates_file)
 
 println("n blocks: ", size(block_df, 1))
