@@ -362,6 +362,9 @@ n_param = length(keys(vel_groups)) / 3.
 red_chi_sq = chi_sq / (length(all_obs) - n_param)
 
 
+println("Reduced Chi Sq: $red_chi_sq")
+
+
 figure(figsize=(14,10))
 for fault in faults
     plot(fault.trace[:,1], fault.trace[:,2], "k-", lw=0.3)
