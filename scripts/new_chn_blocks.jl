@@ -175,6 +175,7 @@ println("n gnss vels: ", length(gnss_vels))
 
 vel_groups = Oiler.group_vels_by_fix_mov(vels);
 
+
 # solve
 poles = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults = faults,
                                                sparse_lhs=true,
