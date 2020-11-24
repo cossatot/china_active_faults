@@ -176,9 +176,15 @@ println("n gnss vels: ", length(gnss_vels))
 vel_groups = Oiler.group_vels_by_fix_mov(vels);
 
 # solve
-poles = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults = faults,
-                                               sparse_lhs=true,
-                                               weighted = true)
+results = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults = faults,
+                                                 sparse_lhs=true,
+                                                 weighted = true,
+                                                 predict_vels = true)
+poles = results["poles"]
+
+ogv = [v["vel"] for v in Oiler.Utils.get_gnss_vels(vel_groups)]
+pgv = [v["vel"] for v in Oiler.Utils.get_gnss_vels(results["predicted_vels"])]
+
 
 # look at outputs
 
