@@ -52,14 +52,14 @@ end
 
 function err_nothing_fix(err)
     if err == ""
-        return 20.
+        return 10.
     elseif isnothing(err) | ismissing(err)
-        return 20.
+        return 10.
     else
         if typeof(err) == String
             err = parse(Float64, err)
             if iszero(err)
-                return 20.
+                return 10.
             else
                 return err
             end
@@ -133,7 +133,7 @@ end
 geol_slip_rate_vels = []
 for i in 1:size(geol_slip_rate_df, 1)
     slip_rate_row = geol_slip_rate_df[i,:]
-    if slip_rate_row[:include] == true
+    if (slip_rate_row[:include] == true) | (slip_rate_row[:include] == "1")
         push!(geol_slip_rate_vels, make_vel_from_slip_rate(slip_rate_row, 
                                                            fault_df))
     end
@@ -330,14 +330,14 @@ axis("equal")
 
 
 
-figure(figsize=(10,4))
+figure(figsize=(5,9))
 suptitle("Observed vs. Modeled Quaternary Slip Rates")
 
-subplot(1,2,1)
+subplot(2,1,1)
 data_max = maximum([maximum(dex_geol_obs), maximum(dex_geol_pred)])
 data_min = minimum([minimum(dex_geol_obs), minimum(dex_geol_pred)])
 plot([data_min, data_max], [data_min, data_max], "C1--")
-
+axis("equal")
 errorbar(dex_geol_obs, dex_geol_pred, xerr = dex_geol_err, yerr=dex_geol_pred_err,
          fmt=".")
 
@@ -345,12 +345,13 @@ xlabel("observed")
 ylabel("modeled")
 title("dextral")
 
-subplot(1,2,2)
+subplot(2,1,2)
 
 data_max = maximum([maximum(ext_geol_obs), maximum(ext_geol_pred)])
 data_min = minimum([minimum(ext_geol_obs), minimum(ext_geol_pred)])
 plot([data_min, data_max], [data_min, data_max], "C1--")
 
+axis("equal")
 errorbar(ext_geol_obs, ext_geol_pred, xerr=ext_geol_err, yerr=ext_geol_pred_err, 
          fmt=".")
 
