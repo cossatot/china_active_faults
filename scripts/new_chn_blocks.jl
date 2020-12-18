@@ -211,26 +211,40 @@ centroids_lon = []
 centroids_lat = []
 centroids_ve = []
 centroids_vn = []
+centroids_ee = []
+centroids_en = []
+centroids_cen = []
 eur_rel_poles = Array{Oiler.PoleCart}(undef, size(block_centroids,1))
 for (i, b_cent) in enumerate(block_centroids)
     bc_lon = AG.getx(b_cent, 0)
     bc_lat =  AG.gety(b_cent, 0)
     push!(centroids_lon, bc_lon)
     push!(centroids_lat, bc_lat)
-    PvGb = Oiler.BlockRotations.build_PvGb_deg(bc_lon, bc_lat)
+    #PvGb = Oiler.BlockRotations.build_PvGb_deg(bc_lon, bc_lat)
     
     pole = Oiler.Utils.get_path_euler_pole(pole_arr, "1111", 
                                            string(block_df[i, :fid]))
     
-    ve, vn, vu = PvGb * [pole.x, pole.y, pole.z]
-    push!(centroids_ve, ve)
-    push!(centroids_vn, vn)
+    #ve, vn, vu = PvGb * [pole.x, pole.y, pole.z]
+    block_vel = Oiler.BlockRotations.predict_block_vel(bc_lon, bc_lat, pole)
+    push!(centroids_ve, block_vel.ve)
+    push!(centroids_vn, block_vel.vn)
+    push!(centroids_ee, block_vel.ee)
+    push!(centroids_en, block_vel.en)
+    push!(centroids_cen, block_vel.cen)
     eur_rel_poles[i] = pole
 end
 
-centroids = DataFrame()
-centroids.lon = centroids_lon
-centroids.lat = centroids_lat
+centroids_pred_df = DataFrame()
+centroids_pred_df.lon = centroids_lon
+centroids_pred_df.lat = centroids_lat
+centroids_pred_df.ve = centroids_ve
+centroids_pred_df.vn = centroids_vn
+centroids_pred_df.ee = centroids_ee
+centroids_pred_df.en = centroids_en
+centroids_pred_df.cen = centroids_cen
+
+CSV.write("../block_data/block_vels.csv", centroids_pred_df)
 
 CSV.write("../block_data/block_poles_eur_rel.csv", 
           Oiler.IO.poles_to_df(eur_rel_poles, convert_to_sphere=true))
@@ -270,8 +284,13 @@ pred_gnss_df.lon = vlon
 pred_gnss_df.lat = vlat
 pred_gnss_df.ve = pve
 pred_gnss_df.vn = pvn
+pred_gnss_df.ee = [v.ee for v in pred_vels]
+pred_gnss_df.en = [v.en for v in pred_vels]
+pred_gnss_df.cen = [v.cen for v in pred_vels]
 pred_gnss_df.re = rve
 pred_gnss_df.rn = rvn
+pred_gnss_df.ree = sqrt.(pred_gnss_df.ee.^2 + [v.ee^2 for v in obs_vels])
+pred_gnss_df.ren = sqrt.(pred_gnss_df.en.^2 + [v.en^2 for v in obs_vels])
 
 CSV.write("../block_data/pred_gnss.csv", pred_gnss_df)
 
@@ -339,7 +358,7 @@ data_min = minimum([minimum(dex_geol_obs), minimum(dex_geol_pred)])
 plot([data_min, data_max], [data_min, data_max], "C1--")
 axis("equal")
 errorbar(dex_geol_obs, dex_geol_pred, xerr = dex_geol_err, yerr=dex_geol_pred_err,
-         fmt=".")
+         fmt=",", elinewidth=0.3)
 
 xlabel("observed")
 ylabel("modeled")
@@ -353,7 +372,7 @@ plot([data_min, data_max], [data_min, data_max], "C1--")
 
 axis("equal")
 errorbar(ext_geol_obs, ext_geol_pred, xerr=ext_geol_err, yerr=ext_geol_pred_err, 
-         fmt=".")
+         fmt=",", elinewidth=0.3)
 
 xlabel("observed")
 ylabel("modeled")
