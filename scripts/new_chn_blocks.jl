@@ -190,10 +190,10 @@ poles = results["poles"]
 new_fault_json = deepcopy(fault_json)
 
 for (i, rate) in enumerate(results["predicted_slip_rates"])
-    new_fault_json["features"][i]["properties"]["v_rl"] = rate.dextral_rate
-    new_fault_json["features"][i]["properties"]["e_rl"] = rate.dextral_err
-    new_fault_json["features"][i]["properties"]["v_ex"] = rate.extension_rate
-    new_fault_json["features"][i]["properties"]["e_ex"] = rate.extension_err
+    new_fault_json["features"][i]["properties"]["v_rl"] = round.(rate.dextral_rate, digits=3)
+    new_fault_json["features"][i]["properties"]["e_rl"] = round.(rate.dextral_err, digits=3)
+    new_fault_json["features"][i]["properties"]["v_ex"] = round.(rate.extension_rate, digits=3)
+    new_fault_json["features"][i]["properties"]["e_ex"] = round.(rate.extension_err, digits=3)
 end
 
 open("../block_data/chn_faults_out.geojson", "w") do ff
@@ -236,13 +236,13 @@ for (i, b_cent) in enumerate(block_centroids)
 end
 
 centroids_pred_df = DataFrame()
-centroids_pred_df.lon = centroids_lon
-centroids_pred_df.lat = centroids_lat
-centroids_pred_df.ve = centroids_ve
-centroids_pred_df.vn = centroids_vn
-centroids_pred_df.ee = centroids_ee
-centroids_pred_df.en = centroids_en
-centroids_pred_df.cen = centroids_cen
+centroids_pred_df.lon = round.(centroids_lon, digits=5)
+centroids_pred_df.lat = round.(centroids_lat, digits=5)
+centroids_pred_df.ve =  round.(centroids_ve, digits=3)
+centroids_pred_df.vn =  round.(centroids_vn, digits=3)
+centroids_pred_df.ee =  round.(centroids_ee, digits=3)
+centroids_pred_df.en =  round.(centroids_en, digits=3)
+centroids_pred_df.cen = round.(centroids_cen, digits=3)
 
 CSV.write("../block_data/block_vels.csv", centroids_pred_df)
 
@@ -282,15 +282,15 @@ rve, rvn = ove - pve, ovn - pvn
 pred_gnss_df = DataFrame()
 pred_gnss_df.lon = vlon
 pred_gnss_df.lat = vlat
-pred_gnss_df.ve = pve
-pred_gnss_df.vn = pvn
-pred_gnss_df.ee = [v.ee for v in pred_vels]
-pred_gnss_df.en = [v.en for v in pred_vels]
-pred_gnss_df.cen = [v.cen for v in pred_vels]
-pred_gnss_df.re = rve
-pred_gnss_df.rn = rvn
-pred_gnss_df.ree = sqrt.(pred_gnss_df.ee.^2 + [v.ee^2 for v in obs_vels])
-pred_gnss_df.ren = sqrt.(pred_gnss_df.en.^2 + [v.en^2 for v in obs_vels])
+pred_gnss_df.ve =  round.(pve, digits=3)
+pred_gnss_df.vn =  round.(pvn, digits=3) 
+pred_gnss_df.ee =  round.([v.ee for v in pred_vels], digits=3)
+pred_gnss_df.en =  round.([v.en for v in pred_vels], digits=3)
+pred_gnss_df.cen = round.([v.cen for v in pred_vels], digits=3)
+pred_gnss_df.re =  round.(rve, digits=3)
+pred_gnss_df.rn =  round.(rvn, digits=3)
+pred_gnss_df.ree = round.(sqrt.(pred_gnss_df.ee.^2 + [v.ee^2 for v in obs_vels]), digits=3)
+pred_gnss_df.ren = round.(sqrt.(pred_gnss_df.en.^2 + [v.en^2 for v in obs_vels]), digits=3)
 
 CSV.write("../block_data/pred_gnss.csv", pred_gnss_df)
 
@@ -355,10 +355,28 @@ suptitle("Observed vs. Modeled Quaternary Slip Rates")
 subplot(2,1,1)
 data_max = maximum([maximum(dex_geol_obs), maximum(dex_geol_pred)])
 data_min = minimum([minimum(dex_geol_obs), minimum(dex_geol_pred)])
-plot([data_min, data_max], [data_min, data_max], "C1--")
+
+plot([data_min, data_max], [data_min, data_max], "C1--", lw=0.5)
+
 axis("equal")
-errorbar(dex_geol_obs, dex_geol_pred, xerr = dex_geol_err, yerr=dex_geol_pred_err,
+errorbar(dex_geol_obs, dex_geol_pred, xerr =  dex_geol_err, yerr = dex_geol_pred_err,
          fmt=",", elinewidth=0.3)
+
+autoscale(false)
+
+fill_between([data_min, 0., -data_min], 
+             [data_min, 0., data_min], 
+             [data_min, data_min, data_min],
+             color="grey",
+             lw=0.,
+             alpha=0.1)
+
+fill_between([data_min, 0., -data_min], 
+             [-data_min, -data_min, -data_min],
+             [-data_min, 0., -data_min], 
+             color="grey",
+             lw=0.,
+             alpha=0.1)
 
 xlabel("observed")
 ylabel("modeled")
@@ -368,14 +386,35 @@ subplot(2,1,2)
 
 data_max = maximum([maximum(ext_geol_obs), maximum(ext_geol_pred)])
 data_min = minimum([minimum(ext_geol_obs), minimum(ext_geol_pred)])
-plot([data_min, data_max], [data_min, data_max], "C1--")
+plot([data_min, data_max], [data_min, data_max], "C1--", lw=0.5)
 
 axis("equal")
 errorbar(ext_geol_obs, ext_geol_pred, xerr=ext_geol_err, yerr=ext_geol_pred_err, 
          fmt=",", elinewidth=0.3)
 
+autoscale(false)
+
+fill_between([data_min, 0., -data_min], 
+             [data_min, 0., data_min], 
+             [data_min, data_min, data_min],
+             color="grey",
+             lw=0.,
+             alpha=0.1)
+
+fill_between([data_min, 0., -data_min], 
+             [-data_min, -data_min, -data_min],
+             [-data_min, 0., -data_min], 
+             color="grey",
+             lw=0.,
+             alpha=0.1)
+
+
 xlabel("observed")
 ylabel("modeled")
 title("extension")
+
+tight_layout()
+
+savefig("../../../china_faults_paper/figs/fault_rates.pdf")
 
 show()
