@@ -110,7 +110,7 @@ function make_vel_from_slip_rate(slip_rate_row, fault_df)
     extension_rate = vel_nothing_fix(slip_rate_row[:extension_rate])
     extension_err = err_nothing_fix(slip_rate_row[:extension_err])
     dextral_rate =vel_nothing_fix(slip_rate_row[:dextral_rate])
-    dextral_err = err_nothing_fix(slip_rate_row[:extension_err])
+    dextral_err = err_nothing_fix(slip_rate_row[:dextral_err])
 
     ve, vn = Oiler.Faults.fault_slip_rate_to_ve_vn(dextral_rate, 
                                                    extension_rate,
