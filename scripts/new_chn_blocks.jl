@@ -10,6 +10,9 @@ const AG = ArchGDAL
 
 using PyPlot
 
+save_results = true
+
+
 fault_file = "../block_data/chn_faults.geojson"
 #gnss_vels_file = "../block_data/gnss_vels.csv"
 gnss_vels_file = "../block_data/gnss_vels.geojson"
@@ -50,16 +53,16 @@ function vel_nothing_fix(vel)
     end
 end
 
-function err_nothing_fix(err)
+function err_nothing_fix(err; return_val=10.)
     if err == ""
-        return 10.
+        return return_val
     elseif isnothing(err) | ismissing(err)
-        return 10.
+        return return_val
     else
         if typeof(err) == String
             err = parse(Float64, err)
             if iszero(err)
-                return 10.
+                return return_val
             else
                 return err
             end
@@ -104,27 +107,28 @@ println("n faults vels: ", length(fault_vels))
 function make_vel_from_slip_rate(slip_rate_row, fault_df)
     fault_seg = slip_rate_row[:fault_seg]
     fault_idx = parse(Int, fault_seg)
-    fault_row = @where(fault_df, findall(x->(x==fault_idx), fault_df.fid))[1,:]
+    fault_row = @where(fault_df, :fid .== fault_idx)[1,:]
     fault = row_to_fault(fault_row)
 
     extension_rate = vel_nothing_fix(slip_rate_row[:extension_rate])
     extension_err = err_nothing_fix(slip_rate_row[:extension_err])
     dextral_rate =vel_nothing_fix(slip_rate_row[:dextral_rate])
-    dextral_err = err_nothing_fix(slip_rate_row[:extension_err])
+    dextral_err = err_nothing_fix(slip_rate_row[:dextral_err])
 
     ve, vn = Oiler.Faults.fault_slip_rate_to_ve_vn(dextral_rate, 
                                                    extension_rate,
                                                    fault.strike)
 
-    ee, en = Oiler.Faults.fault_slip_rate_to_ve_vn(dextral_err, 
-                                                   extension_err,
-                                                   fault.strike)
+    ee, en, cen = Oiler.Faults.fault_slip_rate_err_to_ee_en(dextral_err, 
+                                                            extension_err,
+                                                            fault.strike)
 
     pt = Oiler.IO.get_coords_from_geom(slip_rate_row[:geometry])
     lon = pt[1]
     lat = pt[2]
     
     VelocityVectorSphere(lon=lon, lat=lat, ve=ve, vn=vn, fix=fault.hw,
+                         ee=ee, en=en, cen=cen,
                          mov=fault.fw, vel_type="fault", name=fault_seg)
 
 end
@@ -178,7 +182,7 @@ vel_groups = Oiler.group_vels_by_fix_mov(vels);
 
 # solve
 results = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults = faults,
-                                               sparse_lhs=true,
+                                               sparse_lhs= true,
                                                weighted = true,
                                                predict_vels=true,
                                                pred_se=true)
@@ -196,8 +200,10 @@ for (i, rate) in enumerate(results["predicted_slip_rates"])
     new_fault_json["features"][i]["properties"]["e_ex"] = round.(rate.extension_err, digits=3)
 end
 
-open("../block_data/chn_faults_out.geojson", "w") do ff
-    JSON.print(ff, new_fault_json)
+if save_results == true
+    open("../block_data/chn_faults_out.geojson", "w") do ff
+        JSON.print(ff, new_fault_json)
+    end
 end
 
 
@@ -244,23 +250,26 @@ centroids_pred_df.ee =  round.(centroids_ee, digits=3)
 centroids_pred_df.en =  round.(centroids_en, digits=3)
 centroids_pred_df.cen = round.(centroids_cen, digits=3)
 
-CSV.write("../block_data/block_vels.csv", centroids_pred_df)
 
-CSV.write("../block_data/block_poles_eur_rel.csv", 
-          Oiler.IO.poles_to_df(eur_rel_poles, convert_to_sphere=true))
+if save_results == true
+    CSV.write("../block_data/block_vels.csv", centroids_pred_df)
+
+    CSV.write("../block_data/block_poles_eur_rel.csv", 
+              Oiler.IO.poles_to_df(eur_rel_poles, convert_to_sphere=true))
+end
 
 pred_geol_slip_rates = []
 for (i, rate) in enumerate(geol_slip_rate_vels)
     fault_idx = parse(Int, rate.name)
-    fault_row = @where(fault_df, findall(x->(x==fault_idx), fault_df.fid))[1,:]
+    fault_row = @where(fault_df, :fid .==fault_idx)[1,:]
     fault = row_to_fault(fault_row)
     
     if haskey(poles, (rate.fix, rate.mov))
         pred_rate = Oiler.Faults.get_fault_slip_rate_from_pole(fault, 
-                        poles[(rate.fix, rate.mov)])
+                        poles[(rate.fix, rate.mov)]; lon=rate.lon, lat=rate.lat)
     else
         pred_rate = Oiler.Faults.get_fault_slip_rate_from_pole(fault,
-                        poles[(rate.mov, rate.fix)])
+                        poles[(rate.mov, rate.fix)]; lon=rate.lon, lat=rate.lat)
     end
     
     push!(pred_geol_slip_rates, pred_rate)
@@ -292,8 +301,9 @@ pred_gnss_df.rn =  round.(rvn, digits=3)
 pred_gnss_df.ree = round.(sqrt.(pred_gnss_df.ee.^2 + [v.ee^2 for v in obs_vels]), digits=3)
 pred_gnss_df.ren = round.(sqrt.(pred_gnss_df.en.^2 + [v.en^2 for v in obs_vels]), digits=3)
 
-CSV.write("../block_data/pred_gnss.csv", pred_gnss_df)
-
+if save_results == true
+    CSV.write("../block_data/pred_gnss.csv", pred_gnss_df)
+end
 
 inc = map(!, iszero.(geol_slip_rate_df[!,:include]))
 
@@ -415,6 +425,8 @@ title("extension")
 
 tight_layout()
 
-savefig("../../../china_faults_paper/figs/fault_rates.pdf")
+if save_results == true
+    savefig("../../../china_faults_paper/figs/fault_rates.pdf")
+end
 
 show()
