@@ -53,10 +53,10 @@ function vel_nothing_fix(vel)
     end
 end
 
-function err_nothing_fix(err; return_val=10.)
+function err_nothing_fix(err; return_val=5.)
     if err == ""
         return return_val
-    elseif isnothing(err) | ismissing(err)
+    elseif isnothing(err) | ismissing(err) | (err == 0.)
         return return_val
     else
         if typeof(err) == String
@@ -101,7 +101,6 @@ println("n faults: ", length(faults))
 
 #fault_vels = [f for f in fault_vels if (f.vn != 0.) & (f.ve != 0.)]
 println("n faults vels: ", length(fault_vels))
-
 
 # geol slip rates
 function make_vel_from_slip_rate(slip_rate_row, fault_df)
