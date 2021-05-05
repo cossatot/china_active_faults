@@ -53,7 +53,7 @@ function vel_nothing_fix(vel)
     end
 end
 
-function err_nothing_fix(err; return_val=5.)
+function err_nothing_fix(err; return_val=2.)
     if err == ""
         return return_val
     elseif isnothing(err) | ismissing(err) | (err == 0.)
@@ -359,7 +359,7 @@ axis("equal")
 
 
 figure(figsize=(5,9))
-suptitle("Observed vs. Modeled Quaternary Slip Rates")
+#suptitle("Observed vs. Modeled Quaternary Slip Rates")
 
 subplot(2,1,1)
 data_max = maximum([maximum(dex_geol_obs), maximum(dex_geol_pred)])
