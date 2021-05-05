@@ -53,7 +53,7 @@ function vel_nothing_fix(vel)
     end
 end
 
-function err_nothing_fix(err; return_val=2.)
+function err_nothing_fix(err; return_val=1.)
     if err == ""
         return return_val
     elseif isnothing(err) | ismissing(err) | (err == 0.)
