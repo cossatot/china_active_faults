@@ -10,7 +10,7 @@ const AG = ArchGDAL
 
 using PyPlot
 
-save_results = false
+save_results = true
 
 
 fault_file = "../block_data/chn_faults.geojson"
