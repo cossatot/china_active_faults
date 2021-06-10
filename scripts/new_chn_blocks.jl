@@ -60,7 +60,7 @@ function err_nothing_fix(err; return_val=1.)
         return return_val
     else
         if typeof(err) == String
-            err = parse(Float64, err)
+            err = parse(Float64, err) / fault_weight
             if iszero(err)
                 return return_val
             else
@@ -79,9 +79,9 @@ function row_to_fault(row)
     Oiler.Fault(trace = trace,
         dip_dir = row[:dip_dir],
         extension_rate = vel_nothing_fix(row[:v_ex]),
-        extension_err = err_nothing_fix(row[:e_ex]) * fault_weight,
+        extension_err = err_nothing_fix(row[:e_ex]),
         dextral_rate =vel_nothing_fix(row[:v_rl]),
-        dextral_err = err_nothing_fix(row[:e_rl]) * fault_weight,
+        dextral_err = err_nothing_fix(row[:e_rl]),
         dip = row[:dip],
         name = row[:name],
         hw = row[:hw],
@@ -91,6 +91,7 @@ function row_to_fault(row)
         )
 end
 
+#faults_exclude = [283 326]
 faults = [row_to_fault(fault_df[i,:]) for i in 1:size(fault_df, 1)]
 
 #faults = map(feat_to_Fault, fault_json["features"]);
