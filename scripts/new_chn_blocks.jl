@@ -14,7 +14,6 @@ save_results = true
 
 
 fault_file = "../block_data/chn_faults.geojson"
-#gnss_vels_file = "../block_data/gnss_vels.csv"
 gnss_vels_file = "../block_data/gnss_vels.geojson"
 # load data
 
@@ -25,152 +24,59 @@ data_gpkg = "../block_data/chn_faults_blocks.gpkg"
 geol_slip_rates_file = "../block_data/geol_slip_rate_pts.geojson"
 block_file = "../block_data/chn_blocks.geojson"
 
-#fault_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="chn_faults")
 fault_df = Oiler.IO.gis_vec_file_to_df(fault_file)
-#block_df = Oiler.IO.gis_vec_file_to_df(data_gpkg; layername="blocks")
 block_df = Oiler.IO.gis_vec_file_to_df(block_file)
 
 gnss_df_all = Oiler.IO.gis_vec_file_to_df(gnss_vels_file)
-#gnss_df_all = DataFrame(CSV.File(gnss_vels_file))
 geol_slip_rate_df = Oiler.IO.gis_vec_file_to_df(geol_slip_rates_file)
 
 println("n blocks: ", size(block_df, 1))
 
-fault_weight = 1.
+fault_weight = 2.
 
+# faults_exclude = [573 741 283 326]
+faults_exclude = []
+faults = [Oiler.IO.row_to_fault(fault_df[i,:]) for i in 1:size(fault_df, 1) 
+          if !(fault_df[i,:fid] in faults_exclude)]
 
-function vel_nothing_fix(vel)
-    if vel == ""
-        return 0.
-    elseif isnothing(vel) | ismissing(vel)
-        return 0.
-    else
-        if typeof(vel) == String
-            return parse(Float64, vel)
-        else
-            return vel
-        end
-    end
-end
-
-function err_nothing_fix(err; return_val=1.)
-    if err == ""
-        return return_val
-    elseif isnothing(err) | ismissing(err) | (err == 0.)
-        return return_val
-    else
-        if typeof(err) == String
-            err = parse(Float64, err) / fault_weight
-            if iszero(err)
-                return return_val
-            else
-                return err
-            end
-        else
-            return err
-        end
-    end
-end
-
-
-function row_to_fault(row)
-    trace = Oiler.IO.get_coords_from_geom(row[:geometry])
-
-    Oiler.Fault(trace = trace,
-        dip_dir = row[:dip_dir],
-        extension_rate = vel_nothing_fix(row[:v_ex]),
-        extension_err = err_nothing_fix(row[:e_ex]),
-        dextral_rate =vel_nothing_fix(row[:v_rl]),
-        dextral_err = err_nothing_fix(row[:e_rl]),
-        dip = row[:dip],
-        name = row[:name],
-        hw = row[:hw],
-        fw = row[:fw],
-        usd=row[:usd],
-        lsd=row[:lsd],
-        )
-end
-
-#faults_exclude = [283 326]
-faults = [row_to_fault(fault_df[i,:]) for i in 1:size(fault_df, 1)]
-
-#faults = map(feat_to_Fault, fault_json["features"]);
 fault_vels_ = map(Oiler.fault_to_vels, faults);
-#fault_vels_ = map(Oiler.fault_to_vel, faults);
 fault_vels = reduce(vcat, fault_vels_)
 println("n faults: ", length(faults))
 
-#fault_vels = [f for f in fault_vels if (f.vn != 0.) & (f.ve != 0.)]
 println("n faults vels: ", length(fault_vels))
 
-# geol slip rates
-function make_vel_from_slip_rate(slip_rate_row, fault_df)
-    fault_seg = slip_rate_row[:fault_seg]
-    fault_idx = parse(Int, fault_seg)
-    fault_row = @where(fault_df, :fid .== fault_idx)[1,:]
-    fault = row_to_fault(fault_row)
-
-    extension_rate = vel_nothing_fix(slip_rate_row[:extension_rate])
-    extension_err = err_nothing_fix(slip_rate_row[:extension_err]; return_val=5.)
-    dextral_rate =vel_nothing_fix(slip_rate_row[:dextral_rate])
-    dextral_err = err_nothing_fix(slip_rate_row[:dextral_err]; return_val=5.)
-
-    ve, vn = Oiler.Faults.fault_slip_rate_to_ve_vn(dextral_rate, 
-                                                   extension_rate,
-                                                   fault.strike)
-
-    ee, en, cen = Oiler.Faults.fault_slip_rate_err_to_ee_en(dextral_err, 
-                                                            extension_err,
-                                                            fault.strike)
-
-    pt = Oiler.IO.get_coords_from_geom(slip_rate_row[:geometry])
-    lon = pt[1]
-    lat = pt[2]
-    
-    VelocityVectorSphere(lon=lon, lat=lat, ve=ve, vn=vn, fix=fault.hw,
-                         ee=ee, en=en, cen=cen,
-                         mov=fault.fw, vel_type="fault", name=fault_seg)
-
-end
-
-
-geol_slip_rate_vels = []
-for i in 1:size(geol_slip_rate_df, 1)
-    slip_rate_row = geol_slip_rate_df[i,:]
-    if (slip_rate_row[:include] == true) | (slip_rate_row[:include] == "1")
-        push!(geol_slip_rate_vels, make_vel_from_slip_rate(slip_rate_row, 
-                                                           fault_df))
-    end
-end
-
-geol_slip_rate_vels = convert(Array{VelocityVectorSphere}, geol_slip_rate_vels)
+geol_slip_rate_vels = Oiler.IO.make_geol_slip_rate_vel_vec(geol_slip_rate_df, 
+    fault_df; err_return_val=5.)
 
 println("n fault slip rate vels: ", length(geol_slip_rate_vels))
 
 # gnss
+# gnss_block_idx = Oiler.IO.get_block_idx_for_points(gnss_df_all, block_df)
+#
+# function gnss_vel_from_row(row, block)
+#    pt = Oiler.IO.get_coords_from_geom(row[:geometry])
+#    lon = pt[1]
+#    lat = pt[2]
+#    Oiler.VelocityVectorSphere(lon=lon, lat=lat, ve=row.e_vel,
+#        vn=row.n_vel, ee=row.e_err, en=row.n_err, name=row.station,
+#        fix="1111", mov=string(block), vel_type="GNSS")
+# end
+#
+# gnss_vels = []
+#
+# for (i, block) in enumerate(gnss_block_idx)
+#    if !ismissing(block)
+#        gv = gnss_vel_from_row(gnss_df_all[i,:], block) 
+#        push!(gnss_vels, gv)
+#    end
+# end
+#
+# gnss_vels = convert(Array{VelocityVectorSphere}, gnss_vels)
 
-
-gnss_block_idx = Oiler.IO.get_block_idx_for_points(gnss_df_all, block_df)
-
-function gnss_vel_from_row(row, block)
-    pt = Oiler.IO.get_coords_from_geom(row[:geometry])
-    lon = pt[1]
-    lat = pt[2]
-    Oiler.VelocityVectorSphere(lon = lon, lat = lat, ve = row.e_vel,
-        vn = row.n_vel, ee = row.e_err, en = row.n_err, name = row.station,
-        fix = "1111", mov = string(block), vel_type="GNSS")
-end
-
-gnss_vels = []
-
-for (i, block) in enumerate(gnss_block_idx)
-    if !ismissing(block)
-        gv = gnss_vel_from_row(gnss_df_all[i,:], block) 
-        push!(gnss_vels, gv)
-    end
-end
-
-gnss_vels = convert(Array{VelocityVectorSphere}, gnss_vels)
+gnss_vels = Oiler.IO.make_vels_from_gnss_and_blocks(gnss_df_all, block_df;
+    ve=:e_vel, vn=:n_vel, ee=:e_err, en=:n_err, name=:station,
+    fix="1111"
+)
 
 vels = vcat(fault_vels, gnss_vels, geol_slip_rate_vels);
 # vels = vcat(fault_vels, gnss_vels);
@@ -181,9 +87,9 @@ vel_groups = Oiler.group_vels_by_fix_mov(vels);
 
 
 # solve
-results = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults = faults,
-                                               sparse_lhs= true,
-                                               weighted = true,
+results = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults=faults,
+                                               sparse_lhs=true,
+                                               weighted=true,
                                                predict_vels=true,
                                                pred_se=true)
 
@@ -220,18 +126,18 @@ centroids_vn = []
 centroids_ee = []
 centroids_en = []
 centroids_cen = []
-eur_rel_poles = Array{Oiler.PoleCart}(undef, size(block_centroids,1))
+eur_rel_poles = Array{Oiler.PoleCart}(undef, size(block_centroids, 1))
 for (i, b_cent) in enumerate(block_centroids)
     bc_lon = AG.getx(b_cent, 0)
     bc_lat =  AG.gety(b_cent, 0)
     push!(centroids_lon, bc_lon)
     push!(centroids_lat, bc_lat)
-    #PvGb = Oiler.BlockRotations.build_PvGb_deg(bc_lon, bc_lat)
+    # PvGb = Oiler.BlockRotations.build_PvGb_deg(bc_lon, bc_lat)
     
     pole = Oiler.Utils.get_path_euler_pole(pole_arr, "1111", 
                                            string(block_df[i, :fid]))
     
-    #ve, vn, vu = PvGb * [pole.x, pole.y, pole.z]
+    # ve, vn, vu = PvGb * [pole.x, pole.y, pole.z]
     block_vel = Oiler.BlockRotations.predict_block_vel(bc_lon, bc_lat, pole)
     push!(centroids_ve, block_vel.ve)
     push!(centroids_vn, block_vel.vn)
@@ -261,7 +167,7 @@ end
 pred_geol_slip_rates = []
 for (i, rate) in enumerate(geol_slip_rate_vels)
     fault_idx = parse(Int, rate.name)
-    fault_row = @where(fault_df, :fid .==fault_idx)[1,:]
+    fault_row = @where(fault_df, :fid .== fault_idx)[1,:]
     fault = row_to_fault(fault_row)
     
     if haskey(poles, (rate.fix, rate.mov))
@@ -338,7 +244,7 @@ all_errs = vcat([v.ee for v in obs_vels], [v.en for v in obs_vels],
 
 all_pred = vcat(pve, pvn, dex_geol_pred, ext_geol_pred)
 
-chi_sq = sum(((all_obs .- all_pred).^2 ) ./ all_errs.^2 )
+chi_sq = sum(((all_obs .- all_pred).^2 ) ./ all_errs.^2)
 
 n_param = length(keys(vel_groups)) / 3.
 
@@ -348,7 +254,7 @@ red_chi_sq = chi_sq / (length(all_obs) - n_param)
 println("Reduced Chi Sq: $red_chi_sq")
 
 
-figure(figsize=(14,10))
+figure(figsize=(14, 10))
 for fault in faults
     plot(fault.trace[:,1], fault.trace[:,2], "k-", lw=0.3)
 end
@@ -359,8 +265,8 @@ axis("equal")
 
 
 
-figure(figsize=(5,9))
-#suptitle("Observed vs. Modeled Quaternary Slip Rates")
+figure(figsize=(5, 9))
+# suptitle("Observed vs. Modeled Quaternary Slip Rates")
 
 subplot(2,1,1)
 data_max = maximum([maximum(dex_geol_obs), maximum(dex_geol_pred)])
@@ -369,7 +275,7 @@ data_min = minimum([minimum(dex_geol_obs), minimum(dex_geol_pred)])
 plot([data_min, data_max], [data_min, data_max], "C1--", lw=0.5)
 
 axis("equal")
-errorbar(dex_geol_obs, dex_geol_pred, xerr =  dex_geol_err, yerr = dex_geol_pred_err,
+errorbar(dex_geol_obs, dex_geol_pred, xerr=dex_geol_err, yerr=dex_geol_pred_err,
          fmt=",", elinewidth=0.3)
 
 autoscale(false)
