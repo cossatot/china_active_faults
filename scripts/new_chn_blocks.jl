@@ -168,7 +168,7 @@ pred_geol_slip_rates = []
 for (i, rate) in enumerate(geol_slip_rate_vels)
     fault_idx = parse(Int, rate.name)
     fault_row = @where(fault_df, :fid .== fault_idx)[1,:]
-    fault = row_to_fault(fault_row)
+    fault = Oiler.IO.row_to_fault(fault_row)
     
     if haskey(poles, (rate.fix, rate.mov))
         pred_rate = Oiler.Faults.get_fault_slip_rate_from_pole(fault, 
