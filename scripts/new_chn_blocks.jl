@@ -34,10 +34,8 @@ println("n blocks: ", size(block_df, 1))
 
 fault_weight = 2.
 
-# faults_exclude = [573 741 283 326]
-faults_exclude = []
-faults = [Oiler.IO.row_to_fault(fault_df[i,:]) for i in 1:size(fault_df, 1) 
-          if !(fault_df[i,:fid] in faults_exclude)]
+faults = [Oiler.IO.row_to_fault(fault_df[i,:], name=fault_df[i,:name] )
+for i in 1:size(fault_df, 1)]
 
 fault_vels_ = map(Oiler.fault_to_vels, faults);
 fault_vels = reduce(vcat, fault_vels_)
@@ -50,28 +48,6 @@ geol_slip_rate_vels = Oiler.IO.make_geol_slip_rate_vel_vec(geol_slip_rate_df,
 
 println("n fault slip rate vels: ", length(geol_slip_rate_vels))
 
-# gnss
-# gnss_block_idx = Oiler.IO.get_block_idx_for_points(gnss_df_all, block_df)
-#
-# function gnss_vel_from_row(row, block)
-#    pt = Oiler.IO.get_coords_from_geom(row[:geometry])
-#    lon = pt[1]
-#    lat = pt[2]
-#    Oiler.VelocityVectorSphere(lon=lon, lat=lat, ve=row.e_vel,
-#        vn=row.n_vel, ee=row.e_err, en=row.n_err, name=row.station,
-#        fix="1111", mov=string(block), vel_type="GNSS")
-# end
-#
-# gnss_vels = []
-#
-# for (i, block) in enumerate(gnss_block_idx)
-#    if !ismissing(block)
-#        gv = gnss_vel_from_row(gnss_df_all[i,:], block) 
-#        push!(gnss_vels, gv)
-#    end
-# end
-#
-# gnss_vels = convert(Array{VelocityVectorSphere}, gnss_vels)
 
 gnss_vels = Oiler.IO.make_vels_from_gnss_and_blocks(gnss_df_all, block_df;
     ve=:e_vel, vn=:n_vel, ee=:e_err, en=:n_err, name=:station,
@@ -97,21 +73,11 @@ results = Oiler.solve_block_invs_from_vel_groups(vel_groups; faults=faults,
 
 poles = results["poles"]
 
-new_fault_json = deepcopy(fault_json)
-
-for (i, rate) in enumerate(results["predicted_slip_rates"])
-    new_fault_json["features"][i]["properties"]["v_rl"] = round.(rate.dextral_rate, digits=3)
-    new_fault_json["features"][i]["properties"]["e_rl"] = round.(rate.dextral_err, digits=3)
-    new_fault_json["features"][i]["properties"]["v_ex"] = round.(rate.extension_rate, digits=3)
-    new_fault_json["features"][i]["properties"]["e_ex"] = round.(rate.extension_err, digits=3)
-end
-
 if save_results == true
-    open("../block_data/chn_faults_out.geojson", "w") do ff
-        JSON.print(ff, new_fault_json)
-    end
+    Oiler.IO.write_fault_results_to_gj(results, 
+    "../block_data/chn_faults_out.geojson",
+    name="China fault slip rates")
 end
-
 
 block_centroids = [AG.centroid(block_df[i, :geometry]) 
                    for i in 1:size(block_df, 1)]
