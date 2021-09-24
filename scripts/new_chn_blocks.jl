@@ -43,7 +43,7 @@ println("n faults: ", length(faults))
 
 println("n faults vels: ", length(fault_vels))
 
-geol_slip_rate_vels = Oiler.IO.make_geol_slip_rate_vel_vec(geol_slip_rate_df, 
+geol_slip_rate_vels = Oiler.IO.make_geol_slip_rate_vels(geol_slip_rate_df, 
     fault_df; err_return_val=5.)
 
 println("n fault slip rate vels: ", length(geol_slip_rate_vels))
