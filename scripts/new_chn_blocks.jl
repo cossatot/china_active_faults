@@ -15,6 +15,7 @@ save_results = true
 
 fault_file = "../block_data/chn_faults.geojson"
 gnss_vels_file = "../block_data/gnss_vels.geojson"
+vel_field_file = "../geod/tibet_vel_field_2021_11_05.geojson"
 # load data
 
 # faults
