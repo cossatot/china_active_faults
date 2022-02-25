@@ -14,7 +14,7 @@ if plots == true
     using PyPlot
 end
 
-save_results = true
+save_results = false
 
 
 # load data
