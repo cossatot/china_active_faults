@@ -8,7 +8,7 @@ using DataFrames, DataFramesMeta
 
 using PyPlot
 
-save_results = true
+save_results = false
 
 
 fault_file = "../block_data/chn_faults.geojson"
@@ -30,7 +30,8 @@ fault_weight = 2.
 
 fault_df, faults, fault_vels = Oiler.IO.process_faults_from_gis_files(
                                                         fault_file,
-                                                        block_df=block_df)
+                                                        block_df=block_df,
+                                                        check_blocks=true)
 fault_df[!,:fid] = string.(fault_df[!,:fid])
 println("n faults: ", length(faults))
 println("n faults vels: ", length(fault_vels))
@@ -43,7 +44,9 @@ geol_slip_rate_df, geol_slip_rate_vels = Oiler.IO.make_geol_slip_rate_vels!(
 println("n fault slip rate vels: ", length(geol_slip_rate_vels))
 
 
-
+non_fault_bounds = Oiler.IO.get_non_fault_block_bounds(block_df, faults)
+bound_vels = vcat(map(Oiler.Boundaries.boundary_to_vels, non_fault_bounds)...)
+println("n non-fault-bound vels: ", length(bound_vels))
 
 
 gnss_vels = Oiler.IO.make_vels_from_gnss_and_blocks(gnss_df_all, block_df;
@@ -51,7 +54,7 @@ gnss_vels = Oiler.IO.make_vels_from_gnss_and_blocks(gnss_df_all, block_df;
     fix="1111"
 )
 
-vels = vcat(fault_vels, gnss_vels, geol_slip_rate_vels);
+vels = vcat(fault_vels, gnss_vels, geol_slip_rate_vels, bound_vels);
 
 println("n gnss vels: ", length(gnss_vels))
 
