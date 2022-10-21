@@ -8,7 +8,7 @@ using DataFrames, DataFramesMeta
 
 using PyPlot
 
-save_results = false
+save_results = true
 
 
 fault_file = "../block_data/chn_faults.geojson"
@@ -45,7 +45,13 @@ println("n fault slip rate vels: ", length(geol_slip_rate_vels))
 
 
 non_fault_bounds = Oiler.IO.get_non_fault_block_bounds(block_df, faults)
-bound_vels = vcat(map(Oiler.Boundaries.boundary_to_vels, non_fault_bounds)...)
+bound_vels = vcat(map(
+    x->Oiler.Boundaries.boundary_to_vels(x; ee=5.0, en=5.0),
+    non_fault_bounds)...)
+
+
+
+
 println("n non-fault-bound vels: ", length(bound_vels))
 
 
@@ -54,7 +60,11 @@ gnss_vels = Oiler.IO.make_vels_from_gnss_and_blocks(gnss_df_all, block_df;
     fix="1111"
 )
 
-vels = vcat(fault_vels, gnss_vels, geol_slip_rate_vels, bound_vels);
+vels = vcat(fault_vels, 
+            gnss_vels, 
+            geol_slip_rate_vels, 
+            bound_vels,
+            );
 
 println("n gnss vels: ", length(gnss_vels))
 
