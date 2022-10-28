@@ -6,7 +6,16 @@ and the results (as of the most recent commit).
 
 ## Running the inversion
 
-The inversion is don
+The block inversion uses [`Oiler`](github.com/cossatot/Oiler). Please see that 
+repository for installation instructions.
+
+Once `Oiler` has been installed, go into the `scripts/` directory, start a 
+`julia` interpreter in the terminal, and type
+```julia
+include chn_blocks.jl
+```
+
+First, the code will compile, then the inversion will run.
 
 
 ## Accessing the results

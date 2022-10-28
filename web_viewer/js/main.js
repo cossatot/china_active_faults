@@ -6,7 +6,7 @@
 
     var projection = d3["geoOrthographic"]()
         .precision(0.05)
-        .rotate([110.0, -45, 0])
+        .rotate([-93.06721519392839, -34.58238352692287, 0])
         .scale(500)
         .translate([500, 500])
         ;

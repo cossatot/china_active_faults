@@ -12,7 +12,7 @@ save_results = true
 
 
 fault_file = "../block_data/chn_faults.geojson"
-gnss_vels_file = "../block_data/gnss_vels.geojson"
+gnss_vels_file = "../geod/gnss_vels.geojson"
 
 # load data
 geol_slip_rates_file = "../block_data/geol_slip_rate_pts.geojson"
