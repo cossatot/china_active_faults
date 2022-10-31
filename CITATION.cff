@@ -1,0 +1,22 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: China Active Faults
+message: >-
+  Fault and block model, plus other data, to get slip
+  rates for HimaTibetMap v.2.0
+type: dataset
+authors:
+  - given-names: Richard H.
+    family-names: Styron
+    email: richard.h.styron@gmail.com
+    affiliation: Global Earthquake Model Foundation
+    orcid: 'https://orcid.org/0000-0002-2374-9431'
+identifiers:
+  - type: url
+    value: 'https://github.com/cossatot/china_active_faults'
+repository-code: 'https://github.com/cossatot/china_active_faults'
+license: CC-BY-4.0
+version: v1.0_rc1
+date-released: '2022-10-31'
