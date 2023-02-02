@@ -12,10 +12,10 @@ save_results = true
 
 
 fault_file = "../block_data/chn_faults.geojson"
-gnss_vels_file = "../geod/gnss_vels.geojson"
+gnss_vels_file = "../geod_data/gnss_vels.geojson"
 
 # load data
-geol_slip_rates_file = "../block_data/geol_slip_rate_pts.geojson"
+geol_slip_rates_file = "../geol_data/geol_slip_rate_pts.geojson"
 block_file = "../block_data/chn_blocks.geojson"
 
 block_df = Oiler.IO.gis_vec_file_to_df(block_file)
