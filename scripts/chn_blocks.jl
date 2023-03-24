@@ -9,7 +9,13 @@ using DataFrames, DataFramesMeta
 using PyPlot
 
 save_results = true
+strain_part = false
 
+if strain_part
+    strain_part_ext = "_strain_part"
+else
+    strain_part_ext = ""
+end
 
 fault_file = "../block_data/chn_faults.geojson"
 gnss_vels_file = "../geod_data/gnss_vels.geojson"
@@ -31,6 +37,10 @@ fault_weight = 2.
 fault_df, faults, fault_vels = Oiler.IO.process_faults_from_gis_files(
                                                         fault_file,
                                                         block_df=block_df,
+                                                        lsd_default=10.,
+                                                        adjust_err_by_dip=strain_part,
+                                                        dip_adj_remainder=0.1,
+                                                        e_default=5.0,
                                                         check_blocks=true)
 fault_df[!,:fid] = string.(fault_df[!,:fid])
 println("n faults: ", length(faults))
@@ -85,6 +95,7 @@ Oiler.ResultsAnalysis.compare_data_results(results=results,
                                            geol_slip_rate_df=geol_slip_rate_df,
                                            geol_slip_rate_vels=geol_slip_rate_vels,
                                            fault_df=fault_df)
+Oiler.ResultsAnalysis.calculate_resid_block_strain_rates(results)
 
 println(results["stats_info"])
 
@@ -93,14 +104,17 @@ poles = results["poles"]
 
 if save_results == true
     Oiler.IO.write_fault_results_to_gj(results, 
-    "../results/chn_faults_out.geojson",
+    "../results/chn_faults_out" * strain_part_ext * ".geojson",
     name="China fault slip rates")
 
+    Oiler.IO.write_geol_slip_rate_results_to_csv(results;
+                                outfile="../results/geol_slip_rates" * strain_part_ext* ".csv")
+
     Oiler.IO.write_block_centroid_vels_to_csv(results;
-                                        outfile="../results/block_vels.csv",
+                                        outfile="../results/block_vels" * strain_part_ext * ".csv",
                                         fix="1111")
     Oiler.IO.write_gnss_vel_results_to_csv(results, vel_groups,
-                                        name="../results/chn_gnss_results.csv")
+                                    name="../results/chn_gnss_results" * strain_part_ext * ".csv")
                                            
 end
 
@@ -110,10 +124,19 @@ rates_fig = Oiler.Plots.plot_slip_rate_fig(geol_slip_rate_df,
                                            fault_df, results)
 
 if save_results == true
-    savefig("../../../china_faults_paper/figs/fault_rates.pdf")
+    if strain_part
+        fig_dir = "/Users/itchy/Desktop/strain_part/"
+    else
+        fig_dir = "/Users/itchy/Desktop/no_strain_part/"
+    end
+    savefig(fig_dir * "/fault_rates.pdf")
 end
 
 show()
 
+
 Oiler.WebViewer.write_web_viewer(results=results, block_df=block_df,
                                  ref_pole="1111", directory="../web_viewer")
+
+#run(`ipython /Users/itchy/research/gem/china_faults_paper/ss_profiles.py`)
+#run(`ipython misfit_plots.py`)
