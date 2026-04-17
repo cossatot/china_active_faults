@@ -42,6 +42,10 @@ geol_slip_rate_df, geol_slip_rate_vels = Oiler.IO.make_geol_slip_rate_vels!(
 println("n fault slip rate vels: ", length(geol_slip_rate_vels))
 
 
+@info "doing non-fault block boundaries"
+@time non_fault_bounds = Oiler.IO.get_non_fault_block_bounds(block_df, faults)
+bound_vels = vcat(map(b->Oiler.Boundaries.boundary_to_vels(b, ee=2.0, en=2.0), 
+                      non_fault_bounds)...)
 
 
 
